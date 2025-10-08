@@ -45,7 +45,7 @@ const Dashboard = () => {
   const { user, signOut, loading: authLoading } = useAuth();
   const { theme, setTheme } = useTheme();
 
-  const [profile, setProfileState] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [publicSpaces, setPublicSpaces] = useState<PublishedSpace[]>([]);
 
@@ -66,7 +66,7 @@ const Dashboard = () => {
             navigate("/onboarding");
             return;
           }
-          setProfileState(data as Profile);
+          setProfile(data as Profile);
         } catch {
           toast.error("Failed to load profile");
         } finally {
@@ -84,7 +84,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchSpaces = async () => {
       try {
-        const data = await getPublicSpaces(8); // Fetch top 8 public spaces
+        const data = await getPublicSpaces(8);
         setPublicSpaces(data || []);
       } catch (error) {
         console.error("Error loading public spaces", error);
@@ -162,7 +162,7 @@ const Dashboard = () => {
 
       {/* Dashboard Content */}
       <main className="container mx-auto px-4 pb-12 grid md:grid-cols-3 gap-8 flex-grow">
-        {/* Left (Main) Section */}
+        {/* Left Section */}
         <div className="md:col-span-2 space-y-6">
           <h3 className="text-xl font-semibold mb-2">Your Tools</h3>
 
@@ -205,7 +205,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Right (Sidebar) Section */}
+        {/* Right Section */}
         <div className="space-y-6">
           {/* Profile Card */}
           <Card
@@ -255,14 +255,16 @@ const Dashboard = () => {
           </div>
 
           {publicSpaces.length === 0 ? (
-            <p className="text-center text-muted-foreground">No public spaces available yet.</p>
+            <p className="text-center text-muted-foreground">
+              No public spaces available yet.
+            </p>
           ) : (
             <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {publicSpaces.map((space) => (
                 <Card
                   key={space.id}
                   className="glass-card hover:shadow-glow transition-smooth cursor-pointer"
-                  onClick={() => navigate(`/discover/${space.id}`)}
+                  onClick={() => navigate(`/view/${space.id}`)} // ✅ Fixed route
                 >
                   {space.thumbnailUrl && (
                     <img
