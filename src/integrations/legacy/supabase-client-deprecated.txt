@@ -1,0 +1,9 @@
+// Previous Supabase client (kept for reference)
+// Original file path: src/integrations/supabase/client.ts
+
+// This project now uses Firebase (see src/integrations/firebase/client.ts).
+
+// The original Supabase client used createClient from @supabase/supabase-js and was initialized
+// with VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.
+
+// If you need the original client code, restore from git history or contact the maintainer.

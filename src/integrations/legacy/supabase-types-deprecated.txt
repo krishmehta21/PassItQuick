@@ -1,0 +1,6 @@
+// Supabase schema types (deprecated) - kept for migration reference
+// Original file: src/integrations/supabase/types.ts
+
+// Contains the previous Postgres table definitions and can be used to map fields to Firestore.
+
+(see src/integrations/supabase/types.ts in git history for full typed definition)

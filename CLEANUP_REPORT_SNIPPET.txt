@@ -1,0 +1,25 @@
+Migration cleanup summary (auto-generated)
+
+Files/locations still containing historical references (manual review recommended):
+
+- package-lock.json: contains historical @supabase/* and lovable-tagger entries. This is expected until you run `npm install` to update the lockfile.
+- supabase/: SQL migration files and config (supabase/config.toml and migrations/*.sql). Review for data migration needs.
+- src/integrations/legacy/: contains `supabase-client-deprecated.txt`, `supabase-types-deprecated.txt`, and `client.ts` (legacy shim). These are intentionally kept for reference only.
+
+Code status:
+- All runtime imports now use `@/integrations/firebase/client`.
+- `AuthContext` uses Firebase Auth (onAuthStateChanged) and returns a compatible hook shape.
+- Pages that previously used Supabase now use Firestore helper wrappers in `src/integrations/firebase/client.ts`.
+
+Next steps for developer (required):
+
+1. Run `npm install` to install `firebase` and update `package-lock.json` to remove historical supabase packages and lovable-tagger.
+2. Review SQL migrations in `supabase/migrations` if you need to migrate relational data or port server logic to Cloud Functions.
+3. Optionally delete `src/integrations/legacy/` after verifying the app runs with Firebase.
+
+Reminder: run the following locally to finalize:
+
+```powershell
+npm install
+npm run dev
+```
