@@ -1,6 +1,4 @@
 // src/integrations/firebase/client.ts
-// Firebase client initialization with updated course/chapter helpers
-
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
@@ -18,6 +16,7 @@ import {
   where,
   getDocs,
   orderBy,
+  limit,
   setLogLevel,
   type DocumentData,
   documentId,
@@ -30,7 +29,7 @@ import {
 } from "firebase/storage";
 
 /* -------------------------------------------------------------------------- */
-/*                                ENV HANDLING                                */
+/* ENV HANDLING */
 /* -------------------------------------------------------------------------- */
 
 function sanitizeEnv(value: any) {
@@ -39,8 +38,7 @@ function sanitizeEnv(value: any) {
 }
 
 const firebaseConfig = {
-  apiKey:
-    sanitizeEnv(import.meta.env.VITE_FIREBASE_API_KEY) ||
+  apiKey: sanitizeEnv(import.meta.env.VITE_FIREBASE_API_KEY) ||
     (import.meta.env.DEV
       ? sanitizeEnv(import.meta.env.VITE_FIREBASE_API_KEY_FALLBACK)
       : undefined),
@@ -58,7 +56,7 @@ if (!firebaseConfig.apiKey || String(firebaseConfig.apiKey).length < 20) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                             FIREBASE INITIALIZATION                        */
+/* FIREBASE INITIALIZATION */
 /* -------------------------------------------------------------------------- */
 
 let app: FirebaseApp;
@@ -84,7 +82,7 @@ if (import.meta.env.DEV) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                               TYPE INTERFACES                              */
+/* TYPE INTERFACES */
 /* -------------------------------------------------------------------------- */
 
 export interface Chapter {
@@ -106,7 +104,7 @@ export interface Course {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                                   HELPERS                                  */
+/* HELPERS */
 /* -------------------------------------------------------------------------- */
 
 export async function getProfile(uid: string) {
@@ -129,11 +127,6 @@ export async function setProfile(uid: string, data: Record<string, any>) {
   );
 }
 
-/**
- * ✅ Updated:
- * If `stream` is empty → return ALL courses
- * Otherwise → return only courses matching that stream.
- */
 export async function getCoursesForStream(stream: string): Promise<Course[]> {
   const coursesCol = collection(firestore, "courses");
   try {
@@ -172,10 +165,6 @@ export async function getCoursesForStream(stream: string): Promise<Course[]> {
     throw err;
   }
 }
-
-/* -------------------------------------------------------------------------- */
-/*                              SINGLE COURSE/CHAPTER FETCH                   */
-/* -------------------------------------------------------------------------- */
 
 export async function getCourseById(courseId: string): Promise<Course | null> {
   if (!courseId) return null;
@@ -222,10 +211,6 @@ export async function getChapterById(
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/*                              CHAPTERS HANDLING                             */
-/* -------------------------------------------------------------------------- */
-
 export async function getChaptersForCourse(courseId: string): Promise<Chapter[]> {
   if (!courseId) return [];
   try {
@@ -247,10 +232,6 @@ export async function getChaptersForCourse(courseId: string): Promise<Chapter[]>
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/*                              STORAGE UTILITIES                             */
-/* -------------------------------------------------------------------------- */
-
 export async function uploadFile(
   path: string,
   file: Blob | Uint8Array | ArrayBuffer
@@ -260,17 +241,9 @@ export async function uploadFile(
   return getDownloadURL(snap.ref);
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                   AUTH                                     */
-/* -------------------------------------------------------------------------- */
-
 export async function signOut() {
   await firebaseSignOut(auth);
 }
-
-/* -------------------------------------------------------------------------- */
-/*                                 DEBUG UTILS                                */
-/* -------------------------------------------------------------------------- */
 
 export async function debugFirebase() {
   console.info("[firebase:debug] currentUser:", auth.currentUser);
@@ -296,7 +269,7 @@ export async function debugFirestore() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                             DISCOVER PAGE HELPERS                          */
+/* DISCOVER PAGE HELPERS */
 /* -------------------------------------------------------------------------- */
 
 export interface PublishedSpace {
@@ -308,35 +281,61 @@ export interface PublishedSpace {
   viewCount: number;
   publishedAt: string;
   blocks: string;
+  thumbnailUrl?: string;
+  rating: number; // NEW FIELD
 }
 
-export async function getPublicSpaces(limitCount: number = 20): Promise<PublishedSpace[]> {
+/**
+ * Fetch public spaces with optional limit and sorting by rating.
+ * @param limitCount - Max items to return (0 = unlimited)
+ * @param sortByRating - Whether to sort by rating before publish date
+ */
+export async function getPublicSpaces(
+  limitCount: number = 20,
+  sortByRating: boolean = false
+): Promise<PublishedSpace[]> {
   const spacesCol = collection(firestore, "published_spaces");
+
   try {
-    const q = query(
-      spacesCol,
-      where("isPublic", "==", true),
-      orderBy("publishedAt", "desc")
-    );
+    let q = query(spacesCol, where("isPublic", "==", true));
+
+    if (sortByRating) {
+      q = query(q, orderBy("rating", "desc"), orderBy("publishedAt", "desc"));
+    } else {
+      q = query(q, orderBy("publishedAt", "desc"));
+    }
+
+    if (limitCount > 0) {
+      q = query(q, limit(limitCount));
+    }
+
     const snap = await getDocs(q);
-    const results = snap.docs.map((d) => {
+    return snap.docs.map((d) => {
       const data = d.data() as DocumentData;
-      return { id: d.id, ...data } as PublishedSpace;
+      return { id: d.id, rating: data.rating ?? 0, ...data } as PublishedSpace;
     });
-    return results.slice(0, limitCount);
   } catch (err: any) {
     const msg = err?.message || "";
     if (msg.includes("requires an index")) {
       console.warn("[firebase] Missing index for getPublicSpaces(). Falling back.");
       const q2 = query(spacesCol, where("isPublic", "==", true));
       const snap2 = await getDocs(q2);
-      const arr = snap2.docs.map((d) => {
+      let arr = snap2.docs.map((d) => {
         const data = d.data() as DocumentData;
-        return { id: d.id, ...data } as PublishedSpace;
+        return { id: d.id, rating: data.rating ?? 0, ...data } as PublishedSpace;
       });
-      arr.sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""));
-      return arr.slice(0, limitCount);
+
+      arr.sort((a, b) => {
+        if (sortByRating) {
+          const diff = (b.rating || 0) - (a.rating || 0);
+          if (diff !== 0) return diff;
+        }
+        return (b.publishedAt || "").localeCompare(a.publishedAt || "");
+      });
+
+      return limitCount > 0 ? arr.slice(0, limitCount) : arr;
     }
+
     console.error("[firebase] Failed to fetch public spaces:", err);
     return [];
   }
@@ -348,7 +347,7 @@ export async function getSpaceById(spaceId: string): Promise<PublishedSpace | nu
     const snap = await getDoc(doc(firestore, "published_spaces", spaceId));
     if (!snap.exists()) return null;
     const data = snap.data() as DocumentData;
-    return { id: snap.id, ...data } as PublishedSpace;
+    return { id: snap.id, rating: data.rating ?? 0, ...data } as PublishedSpace;
   } catch (err) {
     console.error(`[firebase] Failed to fetch published space ${spaceId}:`, err);
     return null;
@@ -369,7 +368,7 @@ export async function incrementSpaceViewCount(spaceId: string): Promise<void> {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                                 RE-EXPORTS                                 */
+/* RE-EXPORTS */
 /* -------------------------------------------------------------------------- */
 
 export { onAuthStateChanged };

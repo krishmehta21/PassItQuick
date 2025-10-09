@@ -14,10 +14,10 @@ import Profile from "./pages/Profile";
 import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
 import MySpace from "./pages/MySpace";
-import DiscoverPage from "./pages/DiscoverPage";
 import CourseDetail from "./pages/CourseDetail";
 import ChapterDetail from "./pages/ChapterDetail";
 import ViewSpace from "./pages/ViewSpace";
+import DiscoverPage from "./pages/DiscoverPage";
 
 const queryClient = new QueryClient();
 

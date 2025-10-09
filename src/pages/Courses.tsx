@@ -4,7 +4,7 @@ import { getProfile, getCoursesForStream, type Course as FirebaseCourse } from "
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, BookOpen, Search, User, LogOut, Moon, Sun, Lock } from "lucide-react";
+import { ArrowLeft, BookOpen, Search, User, LogOut, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -28,6 +28,13 @@ const Courses = () => {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   useEffect(() => {
+    const dontRemind = localStorage.getItem("dontRemindCourses");
+    if (!dontRemind) {
+      setShowLoginPrompt(true);
+    }
+  }, []);
+
+  useEffect(() => {
     const load = async () => {
       let stream = "";
       if (user) {
@@ -37,54 +44,48 @@ const Courses = () => {
         } catch {
           toast.error("Failed to load profile");
         }
-      } else {
-        // If no user, allow selecting default stream or show all
-        stream = ""; // empty means all streams
       }
-
       try {
         const data: FirebaseCourse[] = await getCoursesForStream(stream);
-        const mapped: Course[] = (data || []).map((c) => ({
-          id: c.id,
-          name: c.name,
-          description: c.description || "No description available",
-          stream: c.stream || "",
-          icon: c.icon,
-        }));
-        setCourses(mapped);
+        setCourses(
+          (data || []).map(c => ({
+            id: c.id,
+            name: c.name,
+            description: c.description || "No description available",
+            stream: c.stream,
+            icon: c.icon,
+          }))
+        );
       } catch {
         toast.error("Failed to load courses");
       } finally {
         setLoading(false);
       }
     };
-
-    if (!authLoading) {
-      load();
-    }
+    if (!authLoading) load();
   }, [user, authLoading]);
 
-  const filtered = courses.filter((c) =>
+  const filtered = courses.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleCardClick = (id: string) => {
-    if (!user) {
-      setShowLoginPrompt(true);
-      return;
-    }
     navigate(`/courses/${id}`);
+  };
+
+  const handleDontRemind = () => {
+    localStorage.setItem("dontRemindCourses", "true");
+    setShowLoginPrompt(false);
   };
 
   return (
     <div className="min-h-screen gradient-subtle flex flex-col">
       {/* Navbar */}
       <header className="sticky top-0 z-50 border-b bg-white/50 dark:bg-card/50 backdrop-blur-lg">
-        <div className="container mx-auto px-6 py-4 flex flex-wrap justify-between items-center gap-3">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Dashboard
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
+              <ArrowLeft className="h-4 w-4" />
             </Button>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent">
               Courses
@@ -103,12 +104,12 @@ const Courses = () => {
                 <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
                   <User className="h-5 w-5" />
                 </Button>
-                <Button variant="outline" onClick={signOut}>
-                  <LogOut className="h-4 w-4 mr-2" /> Logout
+                <Button variant="outline" size="sm" onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-1" /> Logout
                 </Button>
               </>
             ) : (
-              <Button variant="default" onClick={() => navigate("/auth")}>
+              <Button variant="default" size="sm" onClick={() => navigate("/auth")}>
                 Sign In
               </Button>
             )}
@@ -118,12 +119,9 @@ const Courses = () => {
 
       {/* Main Content */}
       <main className="flex-grow container mx-auto px-6 py-10 space-y-8">
-        {/* Intro */}
-        <div className="text-center md:text-left animate-fade-in">
+        <div className="text-center md:text-left">
           <h1 className="text-4xl font-bold mb-2">Explore Courses</h1>
-          <p className="text-muted-foreground text-base">
-            Browse study materials and chapters{user ? "" : " (sign in to access full content)"}
-          </p>
+          <p className="text-muted-foreground text-base">Browse study materials and chapters</p>
         </div>
 
         {/* Search */}
@@ -132,7 +130,7 @@ const Courses = () => {
           <Input
             placeholder="Search courses..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -153,24 +151,21 @@ const Courses = () => {
           </Card>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((course) => (
+            {filtered.map(course => (
               <Card
                 key={course.id}
                 className="glass-card shadow-elegant hover:shadow-glow transition-all duration-200 cursor-pointer group border border-border/40"
                 onClick={() => handleCardClick(course.id)}
               >
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 gradient-hero rounded-xl transition-transform group-hover:scale-110">
-                        <BookOpen className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{course.name}</CardTitle>
-                        <CardDescription>{course.stream}</CardDescription>
-                      </div>
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 gradient-hero rounded-xl transition-transform group-hover:scale-110">
+                      <BookOpen className="w-6 h-6 text-white" />
                     </div>
-                    {!user && <Lock className="w-5 h-5 text-muted-foreground" />}
+                    <div>
+                      <CardTitle className="text-lg">{course.name}</CardTitle>
+                      <CardDescription>{course.stream}</CardDescription>
+                    </div>
                   </div>
                 </CardHeader>
               </Card>
@@ -178,21 +173,35 @@ const Courses = () => {
           </div>
         )}
 
-        {/* Optional Login Prompt */}
+        {/* Optional Glassy Popup */}
         {showLoginPrompt && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
-              <h2 className="text-xl font-semibold mb-4">Sign in to continue</h2>
-              <p className="mb-6">Please sign in or create an account to access course materials.</p>
-              <div className="flex justify-end gap-4">
-                <Button variant="outline" onClick={() => setShowLoginPrompt(false)}>
-                  Cancel
-                </Button>
-                <Button variant="hero" onClick={() => navigate("/auth")}>
-                  Sign In
-                </Button>
-              </div>
-            </div>
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+            <Card className="glass-card backdrop-blur-lg border border-white/20 max-w-sm w-full p-6">
+              <CardHeader>
+                <CardTitle className="text-xl">Unlock Personalized Courses</CardTitle>
+                <CardDescription>
+                  Sign in or create an account to get tailored recommendations and full access.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="mt-4 space-y-4">
+                <div className="flex justify-end space-x-4">
+                  <Button variant="outline" onClick={() => setShowLoginPrompt(false)}>
+                    Close
+                  </Button>
+                  <Button variant="hero" onClick={() => navigate("/auth")}>
+                    Sign In / Sign Up
+                  </Button>
+                </div>
+                <div className="text-center">
+                  <button
+                    className="text-sm text-muted-foreground underline"
+                    onClick={handleDontRemind}
+                  >
+                    Don’t remind me again
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>

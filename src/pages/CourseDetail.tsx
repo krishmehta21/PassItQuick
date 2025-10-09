@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getCourseById, getChaptersForCourse, type Chapter, type Course } from "@/integrations/firebase/client";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, User, LogOut, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
@@ -19,10 +19,7 @@ const CourseDetail = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-      return;
-    }
+    if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
@@ -63,9 +60,9 @@ const CourseDetail = () => {
     <div className="min-h-screen gradient-subtle flex flex-col">
       {/* Navbar */}
       <header className="sticky top-0 z-50 border-b bg-white/50 dark:bg-card/50 backdrop-blur-lg">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate("/courses")}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
+        <div className="container mx-auto px-6 py-3 flex justify-between items-center">
+          <Button variant="ghost" className="flex items-center" onClick={() => navigate("/courses")}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
           <div className="flex items-center gap-2">
             <Button
@@ -79,41 +76,52 @@ const CourseDetail = () => {
               <User className="h-5 w-5" />
             </Button>
             <Button variant="outline" onClick={signOut}>
-              <LogOut className="h-4 w-4 mr-2" /> Logout
+              <LogOut className="h-4 w-4 mr-1" /> Logout
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-10 space-y-6">
-        {course && (
-          <>
-            <h1 className="text-3xl font-bold mb-2">{course.name}</h1>
-            <p className="text-muted-foreground mb-6">{course.description}</p>
+      {/* Hero / Course Header */}
+      {course && (
+        <section className="bg-gradient-to-r from-primary/20 to-primary/10 dark:from-primary-dark/20 dark:to-primary-dark/10 py-10">
+          <div className="container mx-auto px-6 text-center sm:text-left">
+            <h1 className="text-3xl sm:text-4xl font-bold mb-2">{course.name}</h1>
+            <p className="text-muted-foreground sm:text-lg">{course.description}</p>
+          </div>
+        </section>
+      )}
 
-            {/* Chapters Grid */}
-            <h2 className="text-2xl font-semibold mb-4">Chapters</h2>
-            {chapters.length === 0 ? (
-              <p className="text-muted-foreground">No chapters available.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {chapters.map((ch) => (
-                  <Card
-                    key={ch.id}
-                    className="glass-card cursor-pointer hover:scale-105 hover:shadow-glow transition-all duration-200 group"
+      {/* Chapters Grid */}
+      <main className="container mx-auto px-6 py-8 space-y-6">
+        <h2 className="text-2xl font-semibold mb-4">Chapters</h2>
+        {chapters.length === 0 ? (
+          <p className="text-muted-foreground text-center">No chapters available.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {chapters.map((ch) => (
+              <Card
+                key={ch.id}
+                className="glass-card cursor-pointer hover:scale-105 hover:shadow-glow transition-all duration-200 flex flex-col justify-between"
+                onClick={() => navigate(`/courses/${courseId}/chapters/${ch.id}`)}
+              >
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold group-hover:text-primary transition">
+                    {ch.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  <Button
+                    variant="hero"
+                    className="w-full text-sm"
                     onClick={() => navigate(`/courses/${courseId}/chapters/${ch.id}`)}
                   >
-                    <CardHeader>
-                      <CardTitle className="text-lg font-semibold group-hover:text-primary transition">
-                        {ch.title}
-                      </CardTitle>
-                    </CardHeader>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </>
+                    See Resources Pookie ;) →
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
       </main>
     </div>
