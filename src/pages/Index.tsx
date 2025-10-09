@@ -25,11 +25,12 @@ const Index = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="hero" size="lg" onClick={() => navigate("/auth")}>
-              Get Started
+            {/* Navigate to dashboard instead of auth */}
+            <Button variant="hero" size="lg" onClick={() => navigate("/dashboard")}>
+              Explore Now
             </Button>
             <Button variant="outline" size="lg" onClick={() => navigate("/auth")}>
-              Sign In
+              Sign In / Sign Up
             </Button>
           </div>
         </div>
@@ -77,8 +78,8 @@ const Index = () => {
           <p className="text-muted-foreground mb-6">
             Join thousands of BTech students using PassItQuick to access quality study materials
           </p>
-          <Button variant="hero" size="lg" onClick={() => navigate("/auth")}>
-            Start Learning Now
+          <Button variant="hero" size="lg" onClick={() => navigate("/dashboard")}>
+            Start Exploring Now
           </Button>
         </div>
       </section>

@@ -9,14 +9,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, User, Library, LogOut, Moon, Sun } from "lucide-react";
+import { BookOpen, User, Library, LogOut, Moon, Sun, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
-
-/* -------------------------------------------------------------------------- */
-/*                                   TYPES                                    */
-/* -------------------------------------------------------------------------- */
 
 interface Profile {
   fullName: string;
@@ -36,79 +32,55 @@ interface PublishedSpace {
   thumbnailUrl?: string;
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                DASHBOARD PAGE                              */
-/* -------------------------------------------------------------------------- */
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
   const { theme, setTheme } = useTheme();
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [publicSpaces, setPublicSpaces] = useState<PublishedSpace[]>([]);
 
-  /* -------------------------------------------------------------------------- */
-  /*                           AUTH + PROFILE HANDLING                          */
-  /* -------------------------------------------------------------------------- */
-
-  useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
-  }, [user, authLoading, navigate]);
-
+  // Load profile if authenticated
   useEffect(() => {
     if (!authLoading && user) {
-      const fetchProfile = async () => {
-        try {
-          const data = await getProfile(user.uid);
-          if (!data?.college || !data?.stream) {
-            navigate("/onboarding");
-            return;
-          }
-          setProfile(data as Profile);
-        } catch {
-          toast.error("Failed to load profile");
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchProfile();
+      setLoadingProfile(true);
+      getProfile(user.uid)
+        .then((data) => {
+          if (data) setProfile(data as Profile);
+        })
+        .catch(() => {
+          console.log("Profile load failed");
+        })
+        .finally(() => {
+          setLoadingProfile(false);
+        });
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading]);
 
-  /* -------------------------------------------------------------------------- */
-  /*                           DISCOVER SECTION FETCHING                        */
-  /* -------------------------------------------------------------------------- */
-
+  // Load public spaces
   useEffect(() => {
-    const fetchSpaces = async () => {
-      try {
-        const data = await getPublicSpaces(8);
+    getPublicSpaces(8)
+      .then((data) => {
         setPublicSpaces(data || []);
-      } catch (error) {
-        console.error("Error loading public spaces", error);
-        toast.error("Failed to load public spaces");
-      }
-    };
-    fetchSpaces();
+      })
+      .catch(() => {
+        console.log("Public spaces load failed");
+      });
   }, []);
 
-  /* -------------------------------------------------------------------------- */
-  /*                                   LOADING                                  */
-  /* -------------------------------------------------------------------------- */
-
-  if (loading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-xl">Loading...</div>
-      </div>
-    );
-  }
-
-  /* -------------------------------------------------------------------------- */
-  /*                                   RENDER                                   */
-  /* -------------------------------------------------------------------------- */
+  const handleProtectedAction = (path: string) => {
+    if (!user) {
+      toast.error("Please sign in to access this feature");
+      navigate("/auth");
+      return;
+    }
+    if (user && (!profile?.college || !profile?.stream)) {
+      navigate("/onboarding");
+      return;
+    }
+    navigate(path);
+  };
 
   return (
     <div className="min-h-screen gradient-subtle flex flex-col">
@@ -131,32 +103,70 @@ const Dashboard = () => {
             >
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
-              <User className="h-5 w-5" />
-            </Button>
-            <Button variant="outline" onClick={signOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+            {user ? (
+              <>
+                <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
+                  <User className="h-5 w-5" />
+                </Button>
+                <Button variant="outline" onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <Button variant="default" onClick={() => navigate("/auth")}>
+                Sign In
+              </Button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-12 text-center">
-        <h2 className="text-4xl font-bold mb-2">
-          Welcome back, {profile?.fullName?.split(" ")[0] || "Student"} 👋
-        </h2>
-        <p className="text-muted-foreground mb-6">
-          {profile?.stream} • {profile?.college}
-        </p>
+        {user ? (
+          <>
+            <h2 className="text-4xl font-bold mb-2">
+              Welcome back,{" "}
+              {profile?.fullName?.split(" ")[0] ||
+                "Student"}
+              👋
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              {profile?.stream && profile?.college
+                ? `${profile.stream} • ${profile.college}`
+                : "Complete your profile to get personalized content"}
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-4xl font-bold mb-2">
+              Welcome to PassItQuick 🚀
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Discover study materials and resources from students across India
+            </p>
+          </>
+        )}
+
         <div className="flex justify-center gap-4">
+          {/* Explore Courses is always public */}
           <Button variant="hero" onClick={() => navigate("/courses")}>
             Explore Courses
           </Button>
-          <Button variant="outline" onClick={() => navigate("/my-space")}>
-            Go to My Space
-          </Button>
+
+          {user ? (
+            <Button
+              variant="outline"
+              onClick={() => handleProtectedAction("/my-space")}
+            >
+              Go to My Space
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => navigate("/auth")}>
+              Sign In for My Space
+            </Button>
+          )}
         </div>
       </section>
 
@@ -164,7 +174,7 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 pb-12 grid md:grid-cols-3 gap-8 flex-grow">
         {/* Left Section */}
         <div className="md:col-span-2 space-y-6">
-          <h3 className="text-xl font-semibold mb-2">Your Tools</h3>
+          <h3 className="text-xl font-semibold mb-2">Available Tools</h3>
 
           {/* Courses Card */}
           <Card
@@ -176,7 +186,9 @@ const Dashboard = () => {
                 <Library className="w-6 h-6 text-white" />
               </div>
               <CardTitle>Explore Courses</CardTitle>
-              <CardDescription>Browse study materials tailored for your stream</CardDescription>
+              <CardDescription>
+                Browse study materials tailored for different streams
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Button variant="ghost" className="w-full">
@@ -187,19 +199,28 @@ const Dashboard = () => {
 
           {/* My Space Card */}
           <Card
-            className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer group"
-            onClick={() => navigate("/my-space")}
+            className={`glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer group ${
+              !user ? "opacity-75" : ""
+            }`}
+            onClick={() => handleProtectedAction("/my-space")}
           >
             <CardHeader>
-              <div className="p-3 bg-primary/10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-smooth">
-                <Library className="w-6 h-6 text-primary" />
+              <div className="flex items-center justify-between">
+                <div className="p-3 bg-primary/10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-smooth">
+                  <Library className="w-6 h-6 text-primary" />
+                </div>
+                {!user && <Lock className="w-5 h-5 text-muted-foreground" />}
               </div>
               <CardTitle>My Space</CardTitle>
-              <CardDescription>Upload and organize your own content</CardDescription>
+              <CardDescription>
+                {user
+                  ? "Upload and organize your own content"
+                  : "Sign in to upload and organize your content"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Button variant="ghost" className="w-full">
-                Go to My Space →
+                {user ? "Go to My Space →" : "Sign In Required →"}
               </Button>
             </CardContent>
           </Card>
@@ -207,24 +228,44 @@ const Dashboard = () => {
 
         {/* Right Section */}
         <div className="space-y-6">
-          {/* Profile Card */}
-          <Card
-            className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer group"
-            onClick={() => navigate("/profile")}
-          >
-            <CardHeader>
-              <div className="p-3 bg-accent/10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-smooth">
-                <User className="w-6 h-6 text-accent" />
-              </div>
-              <CardTitle>Profile & Settings</CardTitle>
-              <CardDescription>Manage your account details</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="ghost" className="w-full">
-                View Profile →
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Profile or Sign Up */}
+          {user ? (
+            <Card
+              className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer group"
+              onClick={() => navigate("/profile")}
+            >
+              <CardHeader>
+                <div className="p-3 bg-accent/10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-smooth">
+                  <User className="w-6 h-6 text-accent" />
+                </div>
+                <CardTitle>Profile & Settings</CardTitle>
+                <CardDescription>Manage your account details</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="ghost" className="w-full">
+                  View Profile →
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card
+              className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer group"
+              onClick={() => navigate("/auth")}
+            >
+              <CardHeader>
+                <div className="p-3 bg-accent/10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-smooth">
+                  <User className="w-6 h-6 text-accent" />
+                </div>
+                <CardTitle>Create Account</CardTitle>
+                <CardDescription>Sign up to unlock all features</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="ghost" className="w-full">
+                  Sign Up →
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Quick Start */}
           <Card className="glass-card">
@@ -234,10 +275,18 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="pt-4">
               <p className="text-muted-foreground mb-4 text-sm">
-                Start exploring courses for your stream or upload your notes.
+                {user && profile?.stream
+                  ? `Start exploring courses for ${profile.stream} or upload your notes.`
+                  : "Start exploring courses for your stream or sign up to upload notes."}
               </p>
-              <Button variant="hero" className="w-full" onClick={() => navigate("/courses")}>
-                Browse {profile?.stream} Courses
+              <Button
+                variant="hero"
+                className="w-full"
+                onClick={() => navigate("/courses")}
+              >
+                {user && profile?.stream
+                  ? `Browse ${profile.stream} Courses`
+                  : "Browse All Courses"}
               </Button>
             </CardContent>
           </Card>
@@ -264,7 +313,7 @@ const Dashboard = () => {
                 <Card
                   key={space.id}
                   className="glass-card hover:shadow-glow transition-smooth cursor-pointer"
-                  onClick={() => navigate(`/view/${space.id}`)} // ✅ Fixed route
+                  onClick={() => navigate(`/view/${space.id}`)}
                 >
                   {space.thumbnailUrl && (
                     <img
@@ -274,9 +323,11 @@ const Dashboard = () => {
                     />
                   )}
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-lg line-clamp-1">{space.title}</CardTitle>
+                    <CardTitle className="text-lg line-clamp-1">
+                      {space.title}
+                    </CardTitle>
                     <CardDescription className="text-sm text-muted-foreground">
-                      {space.ownerDisplayName} • {space.viewCount ?? 0} views
+                      {space.ownerDisplayName} • {space.viewCount} views
                     </CardDescription>
                   </CardHeader>
                 </Card>

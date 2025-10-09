@@ -4,11 +4,10 @@ import { getProfile, getCoursesForStream, type Course as FirebaseCourse } from "
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, BookOpen, Search, User, LogOut, Moon, Sun } from "lucide-react";
+import { ArrowLeft, BookOpen, Search, User, LogOut, Moon, Sun, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { populateCoursesInFirestore } from "@/populateFirestore";
 
 interface Course {
   id: string;
@@ -26,69 +25,62 @@ const Courses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-      return;
-    }
-    if (!user) return;
+    const load = async () => {
+      let stream = "";
+      if (user) {
+        try {
+          const profile = await getProfile(user.uid);
+          stream = profile?.stream || "";
+        } catch {
+          toast.error("Failed to load profile");
+        }
+      } else {
+        // If no user, allow selecting default stream or show all
+        stream = ""; // empty means all streams
+      }
 
-    const fetchCourses = async () => {
       try {
-        const profile = await getProfile(user.uid);
-        const stream = profile?.stream || "";
-
-        if (!stream) {
-          toast.warning("No stream found in your profile.");
-          setLoading(false);
-          return;
-        }
-
         const data: FirebaseCourse[] = await getCoursesForStream(stream);
-        if (!data || data.length === 0) {
-          toast.info("No courses found for your stream. Try populating them temporarily.");
-        }
-
-        // Map to our local Course type to ensure description exists
-        const mappedCourses: Course[] = (data || []).map((c) => ({
+        const mapped: Course[] = (data || []).map((c) => ({
           id: c.id,
           name: c.name,
           description: c.description || "No description available",
           stream: c.stream || "",
           icon: c.icon,
         }));
-
-        setCourses(mappedCourses);
-      } catch (error) {
-        console.error("Error loading courses:", error);
-        toast.error("Failed to load courses.");
+        setCourses(mapped);
+      } catch {
+        toast.error("Failed to load courses");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCourses();
-  }, [user, authLoading, navigate]);
+    if (!authLoading) {
+      load();
+    }
+  }, [user, authLoading]);
 
-  const filteredCourses = courses.filter((course) =>
-    course.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = courses.filter((c) =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-lg">Checking authentication...</div>
-      </div>
-    );
-  }
+  const handleCardClick = (id: string) => {
+    if (!user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    navigate(`/courses/${id}`);
+  };
 
   return (
     <div className="min-h-screen gradient-subtle flex flex-col">
       {/* Navbar */}
       <header className="sticky top-0 z-50 border-b bg-white/50 dark:bg-card/50 backdrop-blur-lg">
         <div className="container mx-auto px-6 py-4 flex flex-wrap justify-between items-center gap-3">
-          {/* Left */}
           <div className="flex items-center gap-3">
             <Button variant="ghost" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -98,8 +90,6 @@ const Courses = () => {
               Courses
             </h1>
           </div>
-
-          {/* Right */}
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -108,12 +98,20 @@ const Courses = () => {
             >
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
-              <User className="h-5 w-5" />
-            </Button>
-            <Button variant="outline" onClick={signOut}>
-              <LogOut className="h-4 w-4 mr-2" /> Logout
-            </Button>
+            {user ? (
+              <>
+                <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
+                  <User className="h-5 w-5" />
+                </Button>
+                <Button variant="outline" onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" /> Logout
+                </Button>
+              </>
+            ) : (
+              <Button variant="default" onClick={() => navigate("/auth")}>
+                Sign In
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -124,7 +122,7 @@ const Courses = () => {
         <div className="text-center md:text-left animate-fade-in">
           <h1 className="text-4xl font-bold mb-2">Explore Courses</h1>
           <p className="text-muted-foreground text-base">
-            Browse study materials and chapters for your selected stream.
+            Browse study materials and chapters{user ? "" : " (sign in to access full content)"}
           </p>
         </div>
 
@@ -144,24 +142,22 @@ const Courses = () => {
           <div className="text-center py-16">
             <div className="animate-pulse text-lg">Loading courses...</div>
           </div>
-        ) : filteredCourses.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <Card className="glass-card text-center py-12 max-w-lg mx-auto">
             <CardContent>
               <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground text-base">
-                {searchTerm
-                  ? "No courses found matching your search."
-                  : "No courses available yet."}
+                {searchTerm ? "No courses found." : "No courses available yet."}
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredCourses.map((course) => (
+            {filtered.map((course) => (
               <Card
                 key={course.id}
                 className="glass-card shadow-elegant hover:shadow-glow transition-all duration-200 cursor-pointer group border border-border/40"
-                onClick={() => navigate(`/courses/${course.id}`)}
+                onClick={() => handleCardClick(course.id)}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -174,9 +170,7 @@ const Courses = () => {
                         <CardDescription>{course.stream}</CardDescription>
                       </div>
                     </div>
-                    <div className="text-sm text-primary font-semibold mt-1">
-                      View →
-                    </div>
+                    {!user && <Lock className="w-5 h-5 text-muted-foreground" />}
                   </div>
                 </CardHeader>
               </Card>
@@ -184,12 +178,23 @@ const Courses = () => {
           </div>
         )}
 
-        {/* Admin Button */}
-        <div className="text-center mt-8">
-          <Button variant="outline" onClick={populateCoursesInFirestore}>
-            Populate Firestore Data (Admin)
-          </Button>
-        </div>
+        {/* Optional Login Prompt */}
+        {showLoginPrompt && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h2 className="text-xl font-semibold mb-4">Sign in to continue</h2>
+              <p className="mb-6">Please sign in or create an account to access course materials.</p>
+              <div className="flex justify-end gap-4">
+                <Button variant="outline" onClick={() => setShowLoginPrompt(false)}>
+                  Cancel
+                </Button>
+                <Button variant="hero" onClick={() => navigate("/auth")}>
+                  Sign In
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

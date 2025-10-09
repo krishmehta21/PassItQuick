@@ -115,25 +115,25 @@ const ViewSpace = () => {
   const [workspaceStats, setWorkspaceStats] = useState<WorkspaceStats>({
     totalRatings: 0,
     averageRating: 0,
-    ratingDistribution: {1:0,2:0,3:0,4:0,5:0}
+    ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   });
   const [recentRatings, setRecentRatings] = useState<Rating[]>([]);
   const [showRatingForm, setShowRatingForm] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
 
   const generateFingerprint = () => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
-    ctx.textBaseline = 'top';
-    ctx.font = '14px Arial';
-    ctx.fillText('anonymous', 2, 2);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d")!;
+    ctx.textBaseline = "top";
+    ctx.font = "14px Arial";
+    ctx.fillText("anonymous", 2, 2);
     const fp = [
       navigator.userAgent,
       navigator.language,
-      screen.width + 'x' + screen.height,
+      screen.width + "x" + screen.height,
       new Date().getTimezoneOffset(),
       canvas.toDataURL()
-    ].join('|');
+    ].join("|");
     return btoa(fp).substring(0, 20);
   };
 
@@ -159,7 +159,7 @@ const ViewSpace = () => {
         const data = docSnap.data();
         setWorkspace({
           ...data,
-          blocks: JSON.parse(data.blocks || "[]"),
+          blocks: JSON.parse(data.blocks || "[]")
         } as PublishedWorkspace);
         await updateDoc(docRef, { viewCount: increment(1) });
       } else {
@@ -175,25 +175,25 @@ const ViewSpace = () => {
   const fetchRatingStats = async () => {
     if (!id) return;
     try {
-      const q = query(
-        collection(firestore, "workspace_ratings"),
-        where("workspaceId", "==", id)
-      );
+      const q = query(collection(firestore, "workspace_ratings"), where("workspaceId", "==", id));
       const snap = await getDocs(q);
-      let total=0, count=0;
-      const dist = {1:0,2:0,3:0,4:0,5:0};
-      snap.forEach(d => {
-        const r = d.data().rating;
+      let total = 0,
+        count = 0;
+      const dist = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as { [k: number]: number };
+      snap.forEach((d) => {
+        const r = (d.data() as Rating).rating;
         total += r;
         count++;
-        dist[r] = (dist[r]||0)+1;
+        dist[r] = (dist[r] || 0) + 1;
       });
       setWorkspaceStats({
         totalRatings: count,
-        averageRating: count ? total/count : 0,
+        averageRating: count ? total / count : 0,
         ratingDistribution: dist
       });
-    } catch {}
+    } catch {
+      // no-op
+    }
   };
 
   const fetchRecentRatings = async () => {
@@ -207,14 +207,16 @@ const ViewSpace = () => {
       );
       const snap = await getDocs(q);
       const arr: Rating[] = [];
-      snap.forEach(d => {
+      snap.forEach((d) => {
         const data = d.data() as Rating;
         if (data.comment && data.comment.trim() !== "") {
           arr.push({ id: d.id, ...data });
         }
       });
       setRecentRatings(arr);
-    } catch {}
+    } catch {
+      // no-op
+    }
   };
 
   const checkExistingRating = async () => {
@@ -223,15 +225,15 @@ const ViewSpace = () => {
     const userId = auth.currentUser?.uid;
     const ratingsRef = collection(firestore, "workspace_ratings");
     const q = userId
-      ? query(ratingsRef, where("workspaceId","==",id), where("userId","==",userId))
-      : query(ratingsRef, where("workspaceId","==",id), where("userFingerprint","==",fp));
+      ? query(ratingsRef, where("workspaceId", "==", id), where("userId", "==", userId))
+      : query(ratingsRef, where("workspaceId", "==", id), where("userFingerprint", "==", fp));
     const snap = await getDocs(q);
     if (!snap.empty) {
       const d = snap.docs[0];
       const data = { id: d.id, ...d.data() } as Rating;
       setExistingRating(data);
       setUserRating(data.rating);
-      setUserComment(data.comment||"");
+      setUserComment(data.comment || "");
     }
   };
 
@@ -245,7 +247,7 @@ const ViewSpace = () => {
       const fp = generateFingerprint();
       const userId = auth.currentUser?.uid;
       const disp = auth.currentUser?.displayName;
-      const ratingData: Omit<Rating,'id'> = {
+      const ratingData: Omit<Rating, "id"> = {
         workspaceId: id,
         rating: userRating,
         comment: userComment.trim(),
@@ -262,7 +264,7 @@ const ViewSpace = () => {
         });
         toast.success("Rating updated");
       } else {
-        await addDoc(collection(firestore,"workspace_ratings"), ratingData);
+        await addDoc(collection(firestore, "workspace_ratings"), ratingData);
         toast.success("Rating submitted");
       }
       await fetchRatingStats();
@@ -280,22 +282,20 @@ const ViewSpace = () => {
     rating,
     onRatingChange,
     onHover,
-    readonly=false
+    readonly = false
   }: {
-    rating:number;
-    onRatingChange?:(r:number)=>void;
-    onHover?:(r:number)=>void;
-    readonly?:boolean;
+    rating: number;
+    onRatingChange?: (r: number) => void;
+    onHover?: (r: number) => void;
+    readonly?: boolean;
   }) => (
     <div className="flex gap-1">
-      {[1,2,3,4,5].map(n => (
+      {[1, 2, 3, 4, 5].map((n) => (
         <Star
           key={n}
           className={`w-6 h-6 transition-colors ${
-            n<=rating
-              ? "fill-yellow-400 text-yellow-400"
-              : "fill-gray-200 text-gray-300"
-          } ${readonly?"cursor-default":"cursor-pointer hover:fill-yellow-300 hover:text-yellow-300"}`}
+            n <= rating ? "fill-yellow-400 text-yellow-400" : "fill-gray-200 text-gray-300"
+          } ${readonly ? "cursor-default" : "cursor-pointer hover:fill-yellow-300 hover:text-yellow-300"}`}
           onClick={() => !readonly && onRatingChange?.(n)}
           onMouseEnter={() => !readonly && onHover?.(n)}
           onMouseLeave={() => !readonly && onHover?.(0)}
@@ -305,7 +305,7 @@ const ViewSpace = () => {
   );
 
   const toggleFolder = (id: string) => {
-    setFolderOpen(prev => ({ ...prev, [id]: !prev[id] }));
+    setFolderOpen((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleShareLink = () => {
@@ -315,14 +315,13 @@ const ViewSpace = () => {
     toast.success("Workspace link copied to clipboard!");
   };
 
-  const isInsideAnyFolder = (all: BaseBlock[], id:string) =>
-    all.some(b => b.type==="folder" && (b as FolderBlock).children.some(c => c.id === id));
+  const isInsideAnyFolder = (all: BaseBlock[], id: string) =>
+    all.some((b) => b.type === "folder" && (b as FolderBlock).children.some((c) => c.id === id));
 
-  const getRootBlocks = (blocks:BaseBlock[]) =>
-    blocks.filter(b => !isInsideAnyFolder(blocks,b.id));
+  const getRootBlocks = (blocks: BaseBlock[]) => blocks.filter((b) => !isInsideAnyFolder(blocks, b.id));
 
   const renderReadOnlyBlock = (block: BaseBlock): JSX.Element => {
-    switch(block.type) {
+    switch (block.type) {
       case "file": {
         const f = block as FileBlock;
         return (
@@ -332,12 +331,8 @@ const ViewSpace = () => {
                 <FileText className="w-5 h-5 text-blue-600" />
                 <h4 className="font-semibold">{f.file.name}</h4>
               </div>
-              <Button
-                variant="hero"
-                className="w-full"
-                onClick={()=>window.open(f.file.url,"_blank")}
-              >
-                <LinkIcon className="w-4 h-4 mr-2"/> Open File
+              <Button variant="hero" className="w-full" onClick={() => window.open(f.file.url, "_blank")}>
+                <LinkIcon className="w-4 h-4 mr-2" /> Open File
               </Button>
             </CardContent>
           </Card>
@@ -362,11 +357,7 @@ const ViewSpace = () => {
                 <LinkIcon className="w-5 h-5 text-blue-600" />
                 <h4 className="font-semibold">{l.title}</h4>
               </div>
-              <Button
-                variant="secondary"
-                className="w-full"
-                onClick={()=>l.url && window.open(l.url,"_blank")}
-              >
+              <Button variant="secondary" className="w-full" onClick={() => l.url && window.open(l.url, "_blank")}>
                 Visit Link
               </Button>
             </CardContent>
@@ -376,18 +367,18 @@ const ViewSpace = () => {
       case "list":
       case "importantTopics": {
         const lb = block as ListBlock;
-        const imp = block.type==="importantTopics";
+        const imp = block.type === "importantTopics";
         return (
           <Card key={block.id} className="glass-card">
             <CardContent className="p-5">
               <div className="flex items-center gap-2 mb-3">
-                {imp
-                  ? <AlertCircle className="w-5 h-5 text-red-600"/>
-                  : <List className="w-5 h-5 text-gray-700"/>}
+                {imp ? <AlertCircle className="w-5 h-5 text-red-600" /> : <List className="w-5 h-5 text-gray-700" />}
                 <h4 className="font-semibold">{lb.title}</h4>
               </div>
               <ul className="list-disc pl-6 space-y-1">
-                {lb.items.map((i,idx)=><li key={idx}>{i}</li>)}
+                {lb.items.map((i, idx) => (
+                  <li key={idx}>{i}</li>
+                ))}
               </ul>
             </CardContent>
           </Card>
@@ -401,18 +392,18 @@ const ViewSpace = () => {
             <CardContent className="p-4">
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-2">
-                  <Folder className="w-5 h-5 text-amber-600"/>
+                  <Folder className="w-5 h-5 text-amber-600" />
                   <h4 className="font-semibold">{fb.name}</h4>
                 </div>
-                <Button size="sm" variant="outline" onClick={()=>toggleFolder(fb.id)}>
-                  {open?"Close":"Open"}
+                <Button size="sm" variant="outline" onClick={() => toggleFolder(fb.id)}>
+                  {open ? "Close" : "Open"}
                 </Button>
               </div>
               {open && (
                 <div className="border-l-2 border-amber-200 pl-4 space-y-3">
-                  {fb.children.length>0
-                    ? fb.children.map(c=>renderReadOnlyBlock(c))
-                    : <p className="text-sm italic text-gray-500">This folder is empty</p>}
+                  {fb.children.length > 0 ? fb.children.map((c) => renderReadOnlyBlock(c)) : (
+                    <p className="text-sm italic text-gray-500">This folder is empty</p>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -424,21 +415,26 @@ const ViewSpace = () => {
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center animate-pulse">Loading workspace...</div>
-  );
-  if (error) return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-center">
-      <AlertCircle className="w-12 h-12 text-red-600 mb-3"/>
-      <p className="font-semibold mb-2">{error}</p>
-      <Button onClick={()=>navigate("/")} variant="outline">
-        <ArrowLeft className="w-4 h-4 mr-2"/> Go Home
-      </Button>
-    </div>
-  );
-  if (!workspace) return (
-    <div className="min-h-screen flex items-center justify-center">Workspace not found</div>
-  );
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center animate-pulse">
+        Loading workspace...
+      </div>
+    );
+  if (error)
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center">
+        <AlertCircle className="w-12 h-12 text-red-600 mb-3" />
+        <p className="font-semibold mb-2">{error}</p>
+        <Button onClick={() => navigate("/dashboard")} variant="outline">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Go to Dashboard
+        </Button>
+      </div>
+    );
+  if (!workspace)
+    return (
+      <div className="min-h-screen flex items-center justify-center">Workspace not found</div>
+    );
 
   const rootBlocks = getRootBlocks(workspace.blocks);
 
@@ -446,11 +442,12 @@ const ViewSpace = () => {
     <div className="min-h-screen gradient-subtle">
       <header className="border-b bg-white/50 backdrop-blur-lg sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between">
-          <Button variant="ghost" onClick={()=>navigate("/")}>
-            <ArrowLeft className="w-4 h-4 mr-2"/> Back
+          {/* Back now routes to dashboard and does NOT touch auth */}
+          <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
           </Button>
           <Button variant="outline" onClick={handleShareLink}>
-            <Share2 className="w-4 h-4 mr-2"/> Share
+            <Share2 className="w-4 h-4 mr-2" /> Share
           </Button>
         </div>
       </header>
@@ -464,25 +461,25 @@ const ViewSpace = () => {
             <span>Published {new Date(workspace.publishedAt).toLocaleDateString()}</span>
             <span>•</span>
             <div className="flex items-center gap-1">
-              <Eye className="w-4 h-4"/> {workspace.viewCount} views
+              <Eye className="w-4 h-4" /> {workspace.viewCount} views
             </div>
           </div>
 
           {/* Rating summary */}
           <div className="flex items-center justify-center gap-6 mb-6">
             <div className="flex items-center gap-2">
-              <StarRating rating={Math.round(workspaceStats.averageRating)} readonly/>
+              <StarRating rating={Math.round(workspaceStats.averageRating)} readonly />
               <span className="text-lg font-semibold">{workspaceStats.averageRating.toFixed(1)}</span>
               <span className="text-gray-600">({workspaceStats.totalRatings} ratings)</span>
             </div>
           </div>
           <Button
-            onClick={()=>setShowRatingForm(!showRatingForm)}
-            variant={existingRating?"outline":"default"}
+            onClick={() => setShowRatingForm(!showRatingForm)}
+            variant={existingRating ? "outline" : "default"}
             className="mb-6"
           >
-            <Star className="w-4 h-4 mr-2"/>
-            {existingRating?"Update Rating":"Rate This Workspace"}
+            <Star className="w-4 h-4 mr-2" />
+            {existingRating ? "Update Rating" : "Rate This Workspace"}
           </Button>
         </div>
 
@@ -491,7 +488,7 @@ const ViewSpace = () => {
           <Card className="max-w-md mx-auto mb-8">
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold mb-4">
-                {existingRating?"Update Your Rating":"Rate This Workspace"}
+                {existingRating ? "Update Your Rating" : "Rate This Workspace"}
               </h3>
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-2">Your Rating</label>
@@ -501,10 +498,10 @@ const ViewSpace = () => {
                   onHover={setHoveredRating}
                 />
                 <p className="text-sm text-gray-600 mt-1">
-                  {hoveredRating>0
-                    ? ["","Poor","Fair","Good","Very Good","Excellent"][hoveredRating]
-                    : userRating>0
-                    ? ["","Poor","Fair","Good","Very Good","Excellent"][userRating]
+                  {hoveredRating > 0
+                    ? ["", "Poor", "Fair", "Good", "Very Good", "Excellent"][hoveredRating]
+                    : userRating > 0
+                    ? ["", "Poor", "Fair", "Good", "Very Good", "Excellent"][userRating]
                     : "Click to rate"}
                 </p>
               </div>
@@ -512,7 +509,7 @@ const ViewSpace = () => {
                 <label className="block text-sm font-medium mb-2">Comment (Optional)</label>
                 <textarea
                   value={userComment}
-                  onChange={e=>setUserComment(e.target.value)}
+                  onChange={(e) => setUserComment(e.target.value)}
                   placeholder="Share your thoughts..."
                   className="w-full p-3 border rounded-md h-24 resize-none"
                   maxLength={500}
@@ -520,14 +517,10 @@ const ViewSpace = () => {
                 <p className="text-xs text-gray-500 mt-1">{userComment.length}/500</p>
               </div>
               <div className="flex gap-3">
-                <Button
-                  onClick={submitRating}
-                  disabled={userRating===0||submittingRating}
-                  className="flex-1"
-                >
-                  {submittingRating?"Submitting...": existingRating?"Update":"Submit"}
+                <Button onClick={submitRating} disabled={userRating === 0 || submittingRating} className="flex-1">
+                  {submittingRating ? "Submitting..." : existingRating ? "Update" : "Submit"}
                 </Button>
-                <Button variant="outline" onClick={()=>setShowRatingForm(false)}>
+                <Button variant="outline" onClick={() => setShowRatingForm(false)}>
                   Cancel
                 </Button>
               </div>
@@ -536,20 +529,22 @@ const ViewSpace = () => {
         )}
 
         {/* Recent reviews */}
-        {recentRatings.length>0 && (
+        {recentRatings.length > 0 && (
           <div className="max-w-2xl mx-auto mb-8">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5"/> Recent Reviews
+              <MessageSquare className="w-5 h-5" /> Recent Reviews
             </h3>
             <div className="space-y-4">
-              {recentRatings.map(r=>(
+              {recentRatings.map((r) => (
                 <Card key={r.id} className="p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <StarRating rating={r.rating} readonly/>
-                        <span className="font-medium">{r.userDisplayName||"Anonymous"}</span>
-                        <span className="text-sm text-gray-500">{new Date(r.createdAt).toLocaleDateString()}</span>
+                        <StarRating rating={r.rating} readonly />
+                        <span className="font-medium">{r.userDisplayName || "Anonymous"}</span>
+                        <span className="text-sm text-gray-500">
+                          {new Date(r.createdAt).toLocaleDateString()}
+                        </span>
                       </div>
                       {r.comment && <p className="text-gray-700">{r.comment}</p>}
                     </div>
@@ -561,13 +556,13 @@ const ViewSpace = () => {
         )}
 
         {/* Blocks display */}
-        {rootBlocks.length>0 ? (
+        {rootBlocks.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {rootBlocks.map(b=>renderReadOnlyBlock(b))}
+            {rootBlocks.map((b) => renderReadOnlyBlock(b))}
           </div>
         ) : (
           <div className="text-center py-12">
-            <FileText className="w-16 h-16 mx-auto mb-4 text-gray-400"/>
+            <FileText className="w-16 h-16 mx-auto mb-4 text-gray-4 00" />
             <p>This workspace is empty</p>
           </div>
         )}

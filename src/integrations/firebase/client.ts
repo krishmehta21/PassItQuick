@@ -113,7 +113,7 @@ export async function getProfile(uid: string) {
   const profilesCol = collection(firestore, "profiles");
   const q = query(profilesCol, where("uid", "==", uid));
   const snap = await getDocs(q);
-  return snap.empty ? null : snap.docs[0].data();
+  return snap.empty ? null : (snap.docs[0].data() as DocumentData);
 }
 
 export async function setProfile(uid: string, data: Record<string, any>) {
@@ -129,21 +129,43 @@ export async function setProfile(uid: string, data: Record<string, any>) {
   );
 }
 
+/**
+ * ✅ Updated:
+ * If `stream` is empty → return ALL courses
+ * Otherwise → return only courses matching that stream.
+ */
 export async function getCoursesForStream(stream: string): Promise<Course[]> {
   const coursesCol = collection(firestore, "courses");
   try {
-    const q = query(coursesCol, where("stream", "==", stream), orderBy("name"));
+    let q;
+    if (!stream) {
+      q = query(coursesCol, orderBy("name"));
+    } else {
+      q = query(coursesCol, where("stream", "==", stream), orderBy("name"));
+    }
+
     const snaps = await getDocs(q);
-    return snaps.docs.map((d) => ({ id: d.id, ...d.data() } as Course));
+    return snaps.docs.map((d) => {
+      const data = d.data() as DocumentData;
+      return { id: d.id, ...data } as Course;
+    });
   } catch (err: any) {
     const msg = err?.message || "";
     if (msg.includes("requires an index") || msg.toLowerCase().includes("index")) {
       console.warn(
         "[firebase] Missing Firestore index for getCoursesForStream(). Fallback to client sort."
       );
-      const q2 = query(coursesCol, where("stream", "==", stream));
-      const snaps2 = await getDocs(q2);
-      const arr = snaps2.docs.map((d) => ({ id: d.id, ...d.data() } as Course));
+      let snaps2;
+      if (!stream) {
+        snaps2 = await getDocs(collection(firestore, "courses"));
+      } else {
+        const q2 = query(coursesCol, where("stream", "==", stream));
+        snaps2 = await getDocs(q2);
+      }
+      const arr = snaps2.docs.map((d) => {
+        const data = d.data() as DocumentData;
+        return { id: d.id, ...data } as Course;
+      });
       arr.sort((a, b) => a.name.localeCompare(b.name));
       return arr;
     }
@@ -152,14 +174,15 @@ export async function getCoursesForStream(stream: string): Promise<Course[]> {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              SINGLE COURSE/CHAPTER FETCH                    */
+/*                              SINGLE COURSE/CHAPTER FETCH                   */
 /* -------------------------------------------------------------------------- */
 
 export async function getCourseById(courseId: string): Promise<Course | null> {
   if (!courseId) return null;
   const snap = await getDoc(doc(firestore, "courses", courseId));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as Course;
+  const data = snap.data() as DocumentData;
+  return { id: snap.id, ...data } as Course;
 }
 
 export async function getChapterById(
@@ -167,11 +190,9 @@ export async function getChapterById(
   chapterId: string
 ): Promise<Chapter | null> {
   if (!courseId || !chapterId) return null;
-
   try {
     const snap = await getDoc(doc(firestore, "courses", courseId, "chapters", chapterId));
     if (!snap.exists()) return null;
-
     const data = snap.data() as DocumentData;
 
     return {
@@ -207,15 +228,10 @@ export async function getChapterById(
 
 export async function getChaptersForCourse(courseId: string): Promise<Chapter[]> {
   if (!courseId) return [];
-
   try {
     const chaptersCol = collection(firestore, "courses", courseId, "chapters");
-
-    // Order by documentId() since it's working in your setup
     const q = query(chaptersCol, orderBy(documentId(), "asc"));
-
     const snaps = await getDocs(q);
-
     return snaps.docs.map((d) => {
       const data = d.data() as DocumentData;
       return {
@@ -278,6 +294,7 @@ export async function debugFirestore() {
     console.info("[firebase:firestore-debug] no user");
   }
 }
+
 /* -------------------------------------------------------------------------- */
 /*                             DISCOVER PAGE HELPERS                          */
 /* -------------------------------------------------------------------------- */
@@ -290,26 +307,22 @@ export interface PublishedSpace {
   isPublic: boolean;
   viewCount: number;
   publishedAt: string;
-  blocks: string; // stored as JSON string
+  blocks: string;
 }
 
 export async function getPublicSpaces(limitCount: number = 20): Promise<PublishedSpace[]> {
   const spacesCol = collection(firestore, "published_spaces");
   try {
-    // Query only public spaces, sorted by published date (descending)
     const q = query(
       spacesCol,
       where("isPublic", "==", true),
       orderBy("publishedAt", "desc")
     );
-
     const snap = await getDocs(q);
-    const results = snap.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    })) as PublishedSpace[];
-
-    // Optional: Limit client-side if Firestore index not configured
+    const results = snap.docs.map((d) => {
+      const data = d.data() as DocumentData;
+      return { id: d.id, ...data } as PublishedSpace;
+    });
     return results.slice(0, limitCount);
   } catch (err: any) {
     const msg = err?.message || "";
@@ -317,11 +330,10 @@ export async function getPublicSpaces(limitCount: number = 20): Promise<Publishe
       console.warn("[firebase] Missing index for getPublicSpaces(). Falling back.");
       const q2 = query(spacesCol, where("isPublic", "==", true));
       const snap2 = await getDocs(q2);
-      const arr = snap2.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as PublishedSpace[];
-      // Sort manually by publishedAt
+      const arr = snap2.docs.map((d) => {
+        const data = d.data() as DocumentData;
+        return { id: d.id, ...data } as PublishedSpace;
+      });
       arr.sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""));
       return arr.slice(0, limitCount);
     }
@@ -335,7 +347,8 @@ export async function getSpaceById(spaceId: string): Promise<PublishedSpace | nu
   try {
     const snap = await getDoc(doc(firestore, "published_spaces", spaceId));
     if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() } as PublishedSpace;
+    const data = snap.data() as DocumentData;
+    return { id: snap.id, ...data } as PublishedSpace;
   } catch (err) {
     console.error(`[firebase] Failed to fetch published space ${spaceId}:`, err);
     return null;
@@ -348,18 +361,12 @@ export async function incrementSpaceViewCount(spaceId: string): Promise<void> {
     const spaceRef = doc(firestore, "published_spaces", spaceId);
     const snap = await getDoc(spaceRef);
     if (!snap.exists()) return;
-    const currentCount = snap.data()?.viewCount || 0;
-    await setDoc(
-      spaceRef,
-      { viewCount: currentCount + 1 },
-      { merge: true }
-    );
+    const currentCount = (snap.data() as DocumentData)?.viewCount || 0;
+    await setDoc(spaceRef, { viewCount: currentCount + 1 }, { merge: true });
   } catch (err) {
     console.warn(`[firebase] Failed to increment view count for ${spaceId}:`, err);
   }
 }
-
-
 
 /* -------------------------------------------------------------------------- */
 /*                                 RE-EXPORTS                                 */
